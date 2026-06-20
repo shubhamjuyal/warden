@@ -222,3 +222,7 @@ __marimo__/
 .venv/
 dashboard/node_modules/
 dashboard/.next/
+# The Python `lib/` rule above also matches the dashboard's source lib dir;
+# re-include it so the dashboard DB layer (db.ts, types.ts) is tracked.
+!dashboard/app/lib/
+dashboard/next-env.d.ts

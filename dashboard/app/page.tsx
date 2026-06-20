@@ -1,20 +1,21 @@
 import { listProposals, listAudit } from "./lib/db";
+import type { AuditResult, ProposalSummary } from "./lib/types";
 
 export const dynamic = "force-dynamic"; // always read live ledger state
 
-function fmt(ts) {
+function fmt(ts: Date | string | null | undefined): string {
   if (!ts) return "";
   const d = new Date(ts);
   return d.toISOString().replace("T", " ").slice(0, 19) + "Z";
 }
 
-function fmtCounts(counts) {
+function fmtCounts(counts: Record<string, number> | null | undefined): string {
   const entries = Object.entries(counts || {});
   if (entries.length === 0) return "—";
   return entries.map(([t, n]) => `${n} ${t}`).join(" · ");
 }
 
-function etypeClass(e) {
+function etypeClass(e: string): string {
   if (e.includes("refused") || e.includes("denied")) return "refused";
   if (e.includes("executed")) return "executed";
   if (e.includes("approved")) return "approved";
@@ -23,13 +24,13 @@ function etypeClass(e) {
 }
 
 export default async function Home() {
-  let proposals = [];
-  let audit = { entries: [], chainOk: true, firstBadSeq: null };
-  let error = null;
+  let proposals: ProposalSummary[] = [];
+  let audit: AuditResult = { entries: [], chainOk: true, firstBadSeq: null };
+  let error: string | null = null;
   try {
     [proposals, audit] = await Promise.all([listProposals(), listAudit()]);
   } catch (e) {
-    error = e.message;
+    error = e instanceof Error ? e.message : String(e);
   }
 
   return (

@@ -7,6 +7,7 @@ export async function GET() {
     const audit = await listAudit();
     return Response.json(audit);
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    const message = e instanceof Error ? e.message : String(e);
+    return Response.json({ error: message }, { status: 500 });
   }
 }

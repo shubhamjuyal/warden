@@ -1,13 +1,14 @@
 import { getProposal, listAudit } from "../../lib/db";
+import type { Action } from "../../lib/types";
 
 export const dynamic = "force-dynamic";
 
-function fmt(ts) {
+function fmt(ts: Date | string | null | undefined): string {
   if (!ts) return "";
   return new Date(ts).toISOString().replace("T", " ").slice(0, 19) + "Z";
 }
 
-export default async function ProposalDetail({ params }) {
+export default async function ProposalDetail({ params }: { params: { id: string } }) {
   const p = await getProposal(params.id);
   if (!p) {
     return (
@@ -19,7 +20,7 @@ export default async function ProposalDetail({ params }) {
   }
   const audit = await listAudit();
   const related = audit.entries.filter((e) => e.proposal_id === p.id);
-  const actions = (p.payload && p.payload.actions) || [];
+  const actions: Action[] = (p.payload && p.payload.actions) || [];
 
   return (
     <main className="wrap">
@@ -53,7 +54,7 @@ export default async function ProposalDetail({ params }) {
         </section>
 
         <section className="panel">
-          <h2>This proposal's audit history</h2>
+          <h2>This proposal&apos;s audit history</h2>
           {related.map((e) => (
             <div className="event" key={e.seq}>
               <span className="seq">#{e.seq}</span>
