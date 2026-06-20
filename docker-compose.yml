@@ -1,0 +1,78 @@
+# Warden — three components, three containers, three credential boundaries.
+#
+# The separation is not a config flag here; it is the container topology.
+# Read the `environment:` blocks below as the security model:
+#
+#   • agent      gets GITHUB_READ_TOKEN + OPENAI_API_KEY + Slack tokens.
+#                It is NEVER given GITHUB_WRITE_TOKEN. If it somehow were, it
+#                crashes on startup (guards.assert_sandboxed).
+#   • runner     gets GITHUB_WRITE_TOKEN and nothing else it doesn't need.
+#                It is the only holder of write capability in the whole system.
+#   • postgres   is the permission ledger + immutable, hash-chained audit trail.
+#   • dashboard  reads the ledger. Read-only.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: warden
+      POSTGRES_PASSWORD: warden
+      POSTGRES_DB: warden
+    ports:
+      - "5432:5432"
+    volumes:
+      - warden_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U warden"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  runner:
+    build:
+      context: .
+      dockerfile: services/runner/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://warden:warden@postgres:5432/warden
+      # The ONE write credential in the system lives only here.
+      GITHUB_WRITE_TOKEN: ${GITHUB_WRITE_TOKEN}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  agent:
+    build:
+      context: .
+      dockerfile: services/agent/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://warden:warden@postgres:5432/warden
+      RUNNER_URL: http://runner:8000
+      # Read-only GitHub + the model key. NOTE: no GITHUB_WRITE_TOKEN here.
+      GITHUB_READ_TOKEN: ${GITHUB_READ_TOKEN}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
+      SLACK_APP_TOKEN: ${SLACK_APP_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      runner:
+        condition: service_started
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    environment:
+      # node 'pg' uses the plain postgres:// scheme (no +psycopg).
+      DATABASE_URL: postgres://warden:warden@postgres:5432/warden
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  warden_pgdata:

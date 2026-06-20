@@ -1,0 +1,19 @@
+[project]
+name = "warden-runner"
+version = "0.1.0"
+description = "Warden permissioned execution runner (write-token holder)"
+requires-python = ">=3.10"
+dependencies = [
+    "warden-common",
+    "fastapi>=0.110,<1",
+    "uvicorn[standard]>=0.29,<1",
+    "httpx>=0.27,<1",
+    "psycopg[binary]>=3.1,<4",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["warden_runner*"]

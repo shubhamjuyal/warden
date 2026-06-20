@@ -1,0 +1,23 @@
+[project]
+name = "warden-agent"
+version = "0.1.0"
+description = "Warden sandboxed triage agent (read-only)"
+requires-python = ">=3.10"
+dependencies = [
+    "warden-common",
+    "langgraph>=0.2,<0.3",
+    "langchain-openai>=0.1.15,<1",
+    "slack-bolt>=1.18,<2",
+    "httpx>=0.27,<1",
+    "psycopg[binary]>=3.1,<4",
+]
+
+[project.scripts]
+warden = "warden_agent.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["warden_agent*"]

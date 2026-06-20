@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Warden
+.env
+.venv/
+dashboard/node_modules/
+dashboard/.next/
