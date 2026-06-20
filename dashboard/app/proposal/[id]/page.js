@@ -26,10 +26,11 @@ export default async function ProposalDetail({ params }) {
       <a className="back" href="/">← back to ledger</a>
       <div className="brand">
         <h1>Proposal {p.id.slice(0, 8)}</h1>
+        <span className="badge">{p.capability || "—"}</span>
         <span className={`badge ${p.status}`}>{p.status}</span>
       </div>
       <p className="sub">
-        <span className="kv">repo <b>{p.repo}</b></span> &nbsp;·&nbsp;
+        <span className="kv">subject <b>{p.subject}</b></span> &nbsp;·&nbsp;
         <span className="kv">requested by <b>{p.requested_by}</b></span> &nbsp;·&nbsp;
         <span className="kv">payload hash <b>{p.payload_hash.slice(0, 16)}…</b></span>
       </p>
@@ -41,8 +42,9 @@ export default async function ProposalDetail({ params }) {
             <div className="actionrow" key={i}>
               <div>
                 <span className="atype">{a.type}</span>
-                <b>#{a.issue_number}</b>
+                <b>{a.target}</b>
                 {a.value ? <> → <code>{a.value}</code></> : null}
+                <span className="pill"> &nbsp;via {a.provider}</span>
               </div>
               <div className="rationale">{a.rationale}</div>
               {a.evidence ? <div className="evidence">› {a.evidence}</div> : null}

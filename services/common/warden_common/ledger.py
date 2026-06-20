@@ -86,7 +86,8 @@ def create_proposal(
     raw = payload.model_dump(mode="json")
     ph = payload_hash(raw)
     proposal = Proposal(
-        repo=payload.repo,
+        capability=payload.capability,
+        subject=payload.subject,
         requested_by=requested_by,
         payload=raw,
         payload_hash=ph,
@@ -101,7 +102,8 @@ def create_proposal(
         actor=requested_by,
         proposal_id=proposal.id,
         payload={
-            "repo": payload.repo,
+            "capability": payload.capability,
+            "subject": payload.subject,
             "summary": payload.summary_line(),
             "counts": payload.counts(),
             "payload_hash": ph,
@@ -164,7 +166,7 @@ def record_decision(
     if decision == "standing_rule":
         session.add(
             StandingRule(
-                repo=proposal.repo,
+                subject=proposal.subject,
                 action_type="*",
                 created_by=approver,
                 active=True,
@@ -203,7 +205,7 @@ def find_standing_approval(
     still leaving a full audit record of *which* rule authorised it."""
     rules = session.execute(
         select(StandingRule).where(
-            StandingRule.repo == proposal.repo, StandingRule.active.is_(True)
+            StandingRule.subject == proposal.subject, StandingRule.active.is_(True)
         )
     ).scalars().all()
     if not rules:
@@ -230,7 +232,7 @@ def find_standing_approval(
         actor="standing-rule",
         proposal_id=proposal.id,
         approval_id=approval.id,
-        payload={"rule_repo": proposal.repo},
+        payload={"rule_subject": proposal.subject},
     )
     return approval
 

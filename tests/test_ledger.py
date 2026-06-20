@@ -7,14 +7,15 @@ from warden_common import ledger
 from warden_common.db import session_scope
 from warden_common.ledger import ApprovalError
 from warden_common.models import Approval
-from warden_common.schemas import ActionType, IssueAction, ProposalPayload
+from warden_common.schemas import Action, ProposalPayload
 
 
 def _payload():
     return ProposalPayload(
-        repo="acme/api",
+        capability="triage",
+        subject="acme/api",
         actions=[
-            IssueAction(type=ActionType.LABEL, issue_number=1, value="bug", rationale="r"),
+            Action(provider="github_issues", type="label", target="1", value="bug", rationale="r"),
         ],
     )
 

@@ -1,10 +1,10 @@
 """Issue classification with OpenAI.
 
-The agent's reasoning lives here. It reads each open issue and proposes a
-severity, an area/team, labels, an assignee, and possible duplicates — with a
-short rationale and a quoted piece of evidence for each, because a weak approval
-step is just a button with no context. The rationale and evidence are what make
-the eventual Slack approval card legible.
+The triage capability's reasoning lives here. It reads each open issue and
+proposes a severity, an area/team, labels, an assignee, and possible duplicates
+— with a short rationale and a quoted piece of evidence for each, because a weak
+approval step is just a button with no context. The rationale and evidence are
+what make the eventual Slack approval card legible.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from typing import Protocol
 
 from pydantic import BaseModel
 
-from warden_common.schemas import IssueClassification
+from .types import IssueClassification
 
 
 class ClassificationBatch(BaseModel):

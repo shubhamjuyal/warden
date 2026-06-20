@@ -10,4 +10,4 @@ RUN pip install --no-cache-dir /app/common && \
 
 # This container must NEVER be given GITHUB_WRITE_TOKEN. guards.assert_sandboxed()
 # crashes the process on startup if it is, turning misconfig into a loud failure.
-CMD ["python", "-m", "warden_agent.slack_app"]
+CMD ["python", "-m", "warden_agent.surfaces.slack_app"]

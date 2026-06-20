@@ -8,10 +8,14 @@ We attack the system three ways and show each is structurally dead:
 
   1. A write credential leaking into the agent env is a *startup crash*, not a
      silent new capability.
-  2. The agent package contains no GitHub write code and never imports the
-     runner — there is no write call for hijacked reasoning to reach.
+  2. The agent package — every capability and surface — contains no GitHub write
+     code and never imports the runner. There is no write call for hijacked
+     reasoning to reach.
   3. Even a fully prompt-injected agent that POSTs to the runner with a forged
      approval is refused (403). No human approval in the ledger → no write.
+
+This guarantee holds for the whole platform, not just triage: it is enforced by
+the agent/runner separation, so every future capability inherits it.
 """
 import ast
 import pathlib
@@ -19,16 +23,18 @@ import pathlib
 import pytest
 from fastapi.testclient import TestClient
 
-from warden_agent import github_read
+import warden_agent
+from warden_agent.capabilities.triage import github_read
 from warden_agent.guards import SandboxViolation, assert_sandboxed
 from warden_common import ledger
 from warden_common.db import session_scope
-from warden_common.schemas import ActionType, IssueAction, ProposalPayload
+from warden_common.schemas import Action, ProposalPayload
 from warden_runner import app as runner_module
 
 from .fakes import FakeWriter
 
-AGENT_SRC = pathlib.Path(github_read.__file__).parent
+# Scan the entire agent package — every capability and surface.
+AGENT_SRC = pathlib.Path(warden_agent.__file__).parent
 
 
 # 1) ------------------------------------------------------------------------ #
@@ -78,8 +84,9 @@ def test_prompt_injected_agent_cannot_write_without_approval(ledger_db):
 
     # The hijacked agent wants to nuke issue #1 immediately.
     malicious = ProposalPayload(
-        repo="acme/api",
-        actions=[IssueAction(type=ActionType.CLOSE, issue_number=1, rationale="injected")],
+        capability="triage",
+        subject="acme/api",
+        actions=[Action(provider="github_issues", type="close", target="1", rationale="injected")],
     )
     with session_scope() as s:
         pid = ledger.create_proposal(s, payload=malicious, requested_by="attacker").id

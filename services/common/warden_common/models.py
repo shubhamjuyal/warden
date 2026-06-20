@@ -44,7 +44,12 @@ class Proposal(Base):
     __tablename__ = "proposals"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    repo: Mapped[str] = mapped_column(String(255))
+    # Which capability produced this proposal (e.g. "triage"). Lets one ledger
+    # serve many capabilities and lets the dashboard group by capability.
+    capability: Mapped[str] = mapped_column(String(64), default="")
+    # The scope the capability ran against (e.g. a repo "acme/api"). Generic on
+    # purpose — different capabilities have different kinds of subject.
+    subject: Mapped[str] = mapped_column(String(255))
     requested_by: Mapped[str] = mapped_column(String(255))  # slack user id/name
     # Frozen snapshot of ProposalPayload — the authoritative action list.
     payload: Mapped[dict] = mapped_column(JSON)
@@ -81,8 +86,8 @@ class StandingRule(Base):
     __tablename__ = "standing_rules"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    repo: Mapped[str] = mapped_column(String(255))
-    action_type: Mapped[str] = mapped_column(String(32))  # ActionType or "*"
+    subject: Mapped[str] = mapped_column(String(255))
+    action_type: Mapped[str] = mapped_column(String(32))  # action type or "*"
     created_by: Mapped[str] = mapped_column(String(255))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

@@ -4,19 +4,22 @@ from fastapi.testclient import TestClient
 
 from warden_common import ledger
 from warden_common.db import session_scope
-from warden_common.schemas import ActionType, IssueAction, ProposalPayload
+from warden_common.schemas import Action, ProposalPayload
 from warden_runner import app as runner_module
 
 from .fakes import FakeWriter
 
+GH = "github_issues"
+
 
 def _payload():
     return ProposalPayload(
-        repo="acme/api",
+        capability="triage",
+        subject="acme/api",
         actions=[
-            IssueAction(type=ActionType.LABEL, issue_number=1, value="severity:critical", rationale="r"),
-            IssueAction(type=ActionType.ASSIGN, issue_number=1, value="alice", rationale="r"),
-            IssueAction(type=ActionType.CLOSE, issue_number=2, value="1", rationale="dup"),
+            Action(provider=GH, type="label", target="1", value="severity:critical", rationale="r"),
+            Action(provider=GH, type="assign", target="1", value="alice", rationale="r"),
+            Action(provider=GH, type="close", target="2", value="1", rationale="dup"),
         ],
     )
 

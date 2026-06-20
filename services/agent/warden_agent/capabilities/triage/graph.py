@@ -12,15 +12,16 @@ from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from warden_common.schemas import IssueClassification, ProposalPayload
+from warden_common.schemas import ProposalPayload
 
+from .build import build_payload
 from .classifier import Classifier
 from .github_read import GitHubReadClient
-from .proposals import build_payload
+from .types import IssueClassification
 
 
 class TriageState(TypedDict, total=False):
-    repo: str
+    subject: str          # "owner/repo"
     requested_by: str
     issues: list[dict]
     classifications: list[IssueClassification]
@@ -29,11 +30,11 @@ class TriageState(TypedDict, total=False):
 
 def build_graph(reader: GitHubReadClient, classifier: Classifier):
     def fetch_issues(state: TriageState) -> TriageState:
-        issues = reader.list_open_issues(state["repo"])
+        issues = reader.list_open_issues(state["subject"])
         return {"issues": [i.to_prompt_dict() for i in issues]}
 
     def classify(state: TriageState) -> TriageState:
-        items = classifier.classify(state["repo"], state.get("issues", []))
+        items = classifier.classify(state["subject"], state.get("issues", []))
         return {"classifications": items}
 
     def dedupe(state: TriageState) -> TriageState:
@@ -50,7 +51,7 @@ def build_graph(reader: GitHubReadClient, classifier: Classifier):
         return {"classifications": cleaned}
 
     def make_proposal(state: TriageState) -> TriageState:
-        payload = build_payload(state["repo"], state.get("classifications", []))
+        payload = build_payload(state["subject"], state.get("classifications", []))
         return {"payload": payload}
 
     graph = StateGraph(TriageState)
@@ -71,10 +72,10 @@ def run_triage(
     reader: GitHubReadClient,
     classifier: Classifier,
     *,
-    repo: str,
+    subject: str,
     requested_by: str,
 ) -> ProposalPayload:
     """Convenience wrapper: run the compiled graph and return the proposal."""
     app = build_graph(reader, classifier)
-    final = app.invoke({"repo": repo, "requested_by": requested_by})
+    final = app.invoke({"subject": subject, "requested_by": requested_by})
     return final["payload"]

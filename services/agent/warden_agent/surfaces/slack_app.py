@@ -1,14 +1,16 @@
 """Slack Bolt app (Socket Mode) — Warden's native surface.
 
-Two interactions:
+Generic over capabilities:
 
-1. ``@warden triage owner/repo`` → run the LangGraph flow, persist a proposal in
-   the ledger, and post the approval card.
-2. Button clicks (Approve / Approve once / Deny / Standing rule) → record the
-   human decision in the ledger and, for approvals, ask the runner to execute.
+    @warden <capability> <subject>     e.g. "@warden triage acme/api"
 
-The approval *happens in Slack* — not a side web app — because that is where the
-team already works. Slack is the legible "stop".
+The mention handler parses the capability name, looks it up in the registry,
+runs it, persists a proposal in the ledger, and posts an approval card. Button
+clicks (Approve / Approve once / Deny / Standing rule) record the human decision
+and, for approvals, ask the runner to execute. The approval *happens in Slack* —
+the team's native surface — and is the legible "stop".
+
+Shipping a new capability requires no changes here.
 """
 from __future__ import annotations
 
@@ -20,14 +22,11 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from warden_common import ledger
 from warden_common.config import agent_settings
 from warden_common.db import init_engine, session_scope
-from warden_common.schemas import ProposalPayload
 
-from .deps import build_classifier, build_reader, build_runner_client
-from .graph import run_triage
-from .guards import assert_sandboxed
-from .proposals import proposal_blocks
-
-REPO_RE = re.compile(r"([\w.-]+/[\w.-]+)")
+from .. import capabilities
+from ..deps import build_runner_client
+from ..guards import assert_sandboxed
+from .cards import proposal_blocks
 
 DECISION_LABELS = {
     "approve": "approved",
@@ -35,6 +34,14 @@ DECISION_LABELS = {
     "deny": "denied",
     "standing_rule": "approved (standing rule)",
 }
+
+
+def _help_text() -> str:
+    caps = capabilities.all_capabilities()
+    if not caps:
+        return "No capabilities are registered."
+    lines = [f"• `{c.name}` — {c.help}" for c in caps]
+    return "Available capabilities:\n" + "\n".join(lines)
 
 
 def build_app() -> App:
@@ -46,16 +53,26 @@ def build_app() -> App:
         text = event.get("text", "")
         user = event.get("user", "unknown")
         channel = event.get("channel")
-        if "triage" not in text:
-            say("Try: `@warden triage owner/repo`")
+
+        # Strip the leading "<@BOTID>" mention, then read: <capability> <subject>
+        body = re.sub(r"^\s*<@[^>]+>\s*", "", text).strip()
+        parts = body.split(maxsplit=1)
+        if not parts:
+            say(_help_text())
             return
-        match = REPO_RE.search(text.split("triage", 1)[1])
-        if not match:
-            say("I couldn't find a `owner/repo` in that. Try `@warden triage acme/api`.")
+        cap_name = parts[0]
+        subject = parts[1].strip() if len(parts) > 1 else ""
+
+        capability = capabilities.get(cap_name)
+        if capability is None:
+            say(f"Unknown capability `{cap_name}`.\n{_help_text()}")
             return
-        repo = match.group(1)
-        say(f":hourglass_flowing_sand: Triaging open issues in `{repo}`…")
-        _run_and_post(repo=repo, user=user, channel=channel, say=say)
+        if not subject:
+            say(f"`{cap_name}` needs a subject. {capability.help}")
+            return
+
+        say(f":hourglass_flowing_sand: Running *{cap_name}* on `{subject}`…")
+        _run_and_post(capability, subject=subject, user=user, channel=channel, say=say)
 
     @app.action(re.compile(r"decision_(approve|approve_once|deny|standing_rule)"))
     def handle_decision(ack, body, action, say):  # noqa: ANN001
@@ -68,18 +85,11 @@ def build_app() -> App:
     return app
 
 
-def _run_and_post(*, repo: str, user: str, channel: str, say) -> None:  # noqa: ANN001
-    reader = build_reader()
-    classifier = build_classifier()
-    try:
-        payload: ProposalPayload = run_triage(
-            reader, classifier, repo=repo, requested_by=user
-        )
-    finally:
-        reader.close()
+def _run_and_post(capability, *, subject, user, channel, say) -> None:  # noqa: ANN001
+    payload = capability.run(subject=subject, requested_by=user)
 
     if not payload.actions:
-        say(f"No actions to propose for `{repo}` — everything looks triaged. :white_check_mark:")
+        say(f"No actions to propose for `{subject}` — nothing to do. :white_check_mark:")
         return
 
     with session_scope() as session:
@@ -88,7 +98,8 @@ def _run_and_post(*, repo: str, user: str, channel: str, say) -> None:  # noqa: 
         )
         proposal_id = proposal.id
 
-    say(blocks=proposal_blocks(proposal_id, payload), text="Warden triage proposal")
+    summary = capability.summarize(payload)
+    say(blocks=proposal_blocks(proposal_id, payload, summary), text="Warden proposal")
 
 
 def _apply_decision(decision: str, proposal_id: str, approver: str, say) -> None:  # noqa: ANN001

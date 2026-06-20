@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-warden = "warden_agent.cli:main"
+warden = "warden_agent.surfaces.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]

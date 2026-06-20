@@ -1,4 +1,4 @@
-"""Read-only GitHub client for the agent.
+"""Read-only GitHub client for the triage capability.
 
 Note what is *absent*: there is no method here that mutates anything. The agent
 can list and read issues; it has no code path to label, assign, or close. Even

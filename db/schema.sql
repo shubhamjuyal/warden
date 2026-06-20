@@ -8,13 +8,17 @@
 -- trail immutable at the database layer, not just by application convention.
 -- It is applied automatically by warden_common.db.apply_postgres_hardening().
 
--- proposals     (id, repo, requested_by, payload jsonb, payload_hash,
---                status, slack_channel, slack_message_ts, created_at)
+-- proposals     (id, capability, subject, requested_by, payload jsonb,
+--                payload_hash, status, slack_channel, slack_message_ts, created_at)
 -- approvals     (id, proposal_id, approver, decision, approval_token,
 --                payload_hash, expires_at, consumed_at, created_at)
--- standing_rules(id, repo, action_type, created_by, active, created_at)
+-- standing_rules(id, subject, action_type, created_by, active, created_at)
 -- audit_log     (seq PK, event_type, actor, proposal_id, approval_id,
 --                payload jsonb, prev_hash, this_hash, created_at)
+--
+-- 'capability' records which agent capability produced a proposal (e.g.
+-- "triage"); 'subject' is the scope it ran against (e.g. a repo). Both are
+-- capability-agnostic so one ledger serves every capability.
 
 -- ---------------------------------------------------------------------------
 -- Append-only enforcement: reject any attempt to UPDATE/DELETE/TRUNCATE audit.

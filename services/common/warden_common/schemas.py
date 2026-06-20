@@ -1,72 +1,58 @@
-"""Pydantic DTOs shared across services.
+"""Platform-core DTOs shared across services.
 
-These describe the *shape of a consequential action* and the proposal that
-bundles them. Keeping them here means the agent (which proposes) and the runner
-(which executes) agree on exactly one schema, and the audit trail records that
-same schema verbatim.
+These are deliberately capability-agnostic. A **capability** (triage today;
+others later) produces a ``ProposalPayload`` — a bundle of consequential
+``Action``s. Each action names the **provider** that should execute it, so the
+runner can dispatch to the right executor without knowing anything about the
+capability that proposed it. The same proposal/approval/audit machinery serves
+every capability.
 """
 from __future__ import annotations
 
-from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
 
-class ActionType(str, Enum):
-    LABEL = "label"      # apply a label to an issue
-    ASSIGN = "assign"    # assign an issue to a user
-    CLOSE = "close"      # close an issue (e.g. a confirmed duplicate)
+class Action(BaseModel):
+    """A single consequential write a capability wants performed.
 
+    Provider-agnostic by design: ``provider`` selects the runner-side executor,
+    ``type`` is the operation within that provider, and ``target`` identifies the
+    object it applies to. A new capability reuses this shape — it does not invent
+    a new action schema.
+    """
 
-class IssueAction(BaseModel):
-    """A single consequential write the agent wants the runner to perform."""
-
-    type: ActionType
-    issue_number: int
-    # For LABEL -> the label name. For ASSIGN -> the GitHub login. For CLOSE ->
-    # the issue number this duplicates (as a string), or "" if not a dup.
+    provider: str  # which runner executor performs this, e.g. "github_issues"
+    type: str      # operation within the provider, e.g. "label" | "assign" | "close"
+    target: str    # the object the action applies to, e.g. an issue number
     value: str = ""
     rationale: str = Field(..., description="Why the agent proposes this")
     evidence: str = Field(
-        default="", description="Quote/signal from the issue supporting it"
+        default="", description="Quote/signal supporting it"
     )
 
 
 class ProposalPayload(BaseModel):
-    """The full set of actions the agent proposes for one triage run."""
+    """The full set of actions one capability run proposes."""
 
-    repo: str  # "owner/name"
-    actions: list[IssueAction]
+    capability: str  # which capability produced this, e.g. "triage"
+    subject: str     # human-readable scope, e.g. "acme/api"
+    actions: list[Action]
 
     def counts(self) -> dict[str, int]:
-        out = {t.value: 0 for t in ActionType}
+        """Count actions by type — works for any capability's action mix."""
+        out: dict[str, int] = {}
         for a in self.actions:
-            out[a.type.value] += 1
+            out[a.type] = out.get(a.type, 0) + 1
         return out
 
     def summary_line(self) -> str:
-        c = self.counts()
-        return (
-            f"apply {c['label']} labels, assign {c['assign']} issues, "
-            f"close {c['close']} duplicates"
-        )
-
-
-# ---- Triage / classification output (agent-internal) -----------------------
-
-Severity = Literal["critical", "high", "medium", "low"]
-
-
-class IssueClassification(BaseModel):
-    issue_number: int
-    severity: Severity
-    area: str                       # suggested area/team label, e.g. "backend"
-    suggested_labels: list[str] = []
-    suggested_assignee: str | None = None
-    duplicate_of: int | None = None
-    rationale: str = ""
-    evidence: str = ""
+        """Generic one-liner. A capability may render a nicer summary of its own
+        (see ``Capability.summarize``)."""
+        if not self.actions:
+            return "no actions"
+        return ", ".join(f"{n} {t}" for t, n in self.counts().items())
 
 
 # ---- Runner request / response ---------------------------------------------
@@ -85,7 +71,7 @@ class ExecuteRequest(BaseModel):
 
 
 class ExecutedAction(BaseModel):
-    action: IssueAction
+    action: Action
     ok: bool
     detail: str = ""
 

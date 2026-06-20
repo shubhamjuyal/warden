@@ -9,7 +9,9 @@ Warden uses Socket Mode, so you don't need ngrok or a public endpoint. ~5 minute
 4. **Basic Information → App-Level Tokens → Generate** a token with the
    `connections:write` scope. Copy it (`xapp-…`) → `SLACK_APP_TOKEN` in `.env`.
 5. Invite the bot to a channel: `/invite @warden`.
-6. `docker compose up --build`, then in that channel: `@warden triage owner/repo`.
+6. `docker compose up --build`, then in that channel invoke any capability:
+   `@warden <capability> <subject>` — e.g. `@warden triage owner/repo`. The bot
+   lists available capabilities if you `@warden` it with no arguments.
 
 ## App manifest
 

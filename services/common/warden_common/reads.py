@@ -15,7 +15,8 @@ def list_proposals(session: Session, limit: int = 100) -> list[dict]:
     return [
         {
             "id": p.id,
-            "repo": p.repo,
+            "capability": p.capability,
+            "subject": p.subject,
             "requested_by": p.requested_by,
             "status": p.status,
             "counts": _counts(p.payload),
@@ -31,7 +32,8 @@ def get_proposal_detail(session: Session, proposal_id: str) -> dict | None:
         return None
     return {
         "id": p.id,
-        "repo": p.repo,
+        "capability": p.capability,
+        "subject": p.subject,
         "requested_by": p.requested_by,
         "status": p.status,
         "payload": p.payload,
@@ -79,7 +81,8 @@ def list_audit(session: Session, limit: int = 500) -> dict:
 
 
 def _counts(payload: dict) -> dict[str, int]:
-    out = {"label": 0, "assign": 0, "close": 0}
+    """Count actions by type — capability-agnostic."""
+    out: dict[str, int] = {}
     for a in payload.get("actions", []):
         out[a["type"]] = out.get(a["type"], 0) + 1
     return out

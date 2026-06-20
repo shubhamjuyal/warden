@@ -8,6 +8,12 @@ function fmt(ts) {
   return d.toISOString().replace("T", " ").slice(0, 19) + "Z";
 }
 
+function fmtCounts(counts) {
+  const entries = Object.entries(counts || {});
+  if (entries.length === 0) return "—";
+  return entries.map(([t, n]) => `${n} ${t}`).join(" · ");
+}
+
 function etypeClass(e) {
   if (e.includes("refused") || e.includes("denied")) return "refused";
   if (e.includes("executed")) return "executed";
@@ -33,10 +39,10 @@ export default async function Home() {
         <span className="tag">permission ledger · immutable audit trail</span>
       </div>
       <p className="sub">
-        Every consequential action the triage agent proposes is routed through a human
-        approval and executed by a separate, write-scoped runner. This ledger is the
-        first-class record of who asked, what was proposed, who approved, what ran, and when —
-        hash-chained so tampering is visible.
+        Every consequential action a capability proposes is routed through a human approval
+        and executed by a separate, write-scoped runner. This ledger is the first-class record
+        of who asked, what was proposed, who approved, what ran, and when — hash-chained so
+        tampering is visible. Triage is the first capability; the ledger serves them all.
       </p>
 
       {error && (
@@ -51,22 +57,21 @@ export default async function Home() {
           <table>
             <thead>
               <tr>
-                <th>Proposal</th><th>Repo</th><th>Requested by</th>
+                <th>Proposal</th><th>Capability</th><th>Subject</th><th>Requested by</th>
                 <th>Actions</th><th>Status</th><th>Created</th>
               </tr>
             </thead>
             <tbody>
               {proposals.length === 0 && (
-                <tr><td colSpan={6} className="mono">No proposals yet. Run a triage in Slack.</td></tr>
+                <tr><td colSpan={7} className="mono">No proposals yet. Run a capability in Slack.</td></tr>
               )}
               {proposals.map((p) => (
                 <tr key={p.id}>
                   <td><a href={`/proposal/${p.id}`}>{p.id.slice(0, 8)}</a></td>
-                  <td>{p.repo}</td>
+                  <td><span className="badge">{p.capability || "—"}</span></td>
+                  <td>{p.subject}</td>
                   <td className="mono">{p.requested_by}</td>
-                  <td className="pill">
-                    {p.counts.label}L · {p.counts.assign}A · {p.counts.close}C
-                  </td>
+                  <td className="pill">{fmtCounts(p.counts)}</td>
                   <td><span className={`badge ${p.status}`}>{p.status}</span></td>
                   <td className="mono">{fmt(p.created_at)}</td>
                 </tr>

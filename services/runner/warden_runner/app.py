@@ -4,7 +4,8 @@ One meaningful endpoint: ``POST /execute``. It accepts only identifiers
 (proposal id + approval token) — never an action list and never a credential.
 It re-reads the authoritative proposal and approval from the ledger, runs the
 gate (:func:`warden_common.ledger.validate_for_execution`), and refuses with
-HTTP 403 on any failure. Only after the gate passes does it touch GitHub.
+HTTP 403 on any failure. Only after the gate passes does it dispatch each action
+to the executor registry — so it stays capability-agnostic.
 """
 from __future__ import annotations
 
@@ -18,25 +19,32 @@ from warden_common.db import init_engine, session_scope
 from warden_common.ledger import ApprovalError
 from warden_common.schemas import ExecuteRequest, ExecuteResponse, ProposalPayload
 
-from .executor import Writer, execute_proposal
+from .executors import Registry, Writer, build_default_registry, execute_proposal
 from .github_write import GitHubWriteClient
 
 # Built lazily on first use so the service can boot (and tests can run) without
-# a live token; constructing it requires the write token.
-_writer: Writer | None = None
+# a live token; constructing the GitHub writer requires the write token.
+_registry: Registry | None = None
 
 
-def get_writer() -> Writer:
-    global _writer
-    if _writer is None:
-        _writer = GitHubWriteClient(runner_settings().github_write_token)
-    return _writer
+def get_registry() -> Registry:
+    global _registry
+    if _registry is None:
+        writer = GitHubWriteClient(runner_settings().github_write_token)
+        _registry = build_default_registry(writer)
+    return _registry
 
 
 def set_writer(writer: Writer | None) -> None:
-    """Test seam: inject a fake writer (or reset to None)."""
-    global _writer
-    _writer = writer
+    """Test seam: rebuild the registry around an injected writer (or reset)."""
+    global _registry
+    _registry = build_default_registry(writer) if writer is not None else None
+
+
+def set_registry(registry: Registry | None) -> None:
+    """Test seam: inject a fully-formed registry (or reset to None)."""
+    global _registry
+    _registry = registry
 
 
 @asynccontextmanager
@@ -82,7 +90,7 @@ def execute(req: ExecuteRequest) -> ExecuteResponse:
             # Execute exactly the actions recorded in the ledger, then record
             # the outcome on the immutable trail.
             payload = ProposalPayload.model_validate(proposal.payload)
-            results = execute_proposal(payload, get_writer())
+            results = execute_proposal(payload, get_registry())
             ledger.mark_executed(
                 session,
                 proposal=proposal,

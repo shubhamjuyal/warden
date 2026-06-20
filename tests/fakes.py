@@ -1,8 +1,8 @@
 """Test doubles for the agent's collaborators."""
 from __future__ import annotations
 
-from warden_agent.github_read import Issue
-from warden_common.schemas import IssueClassification
+from warden_agent.capabilities.triage.github_read import Issue
+from warden_agent.capabilities.triage.types import IssueClassification
 
 
 class FakeReader:

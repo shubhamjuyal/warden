@@ -1,13 +1,14 @@
 """Headless CLI over the same core the Slack app uses.
 
-Handy for running the full loop without a Slack workspace (and for demos on a
-projector). Subcommands:
+Subcommands are generated from the capability registry, so every capability is
+runnable as ``warden <capability> <subject>`` (e.g. ``warden triage acme/api``)
+with no per-capability CLI code. Plus ledger inspection:
 
-    warden triage <owner/repo>     run the graph, persist a proposal, print it
-    warden approve <proposal_id>   record approval + ask the runner to execute
-    warden deny <proposal_id>      record a denial
-    warden proposals               list recent proposals
-    warden audit                   print the hash-chained audit trail + verify
+    warden <capability> <subject>   run a capability, persist a proposal, print it
+    warden approve <proposal_id>    record approval + ask the runner to execute
+    warden deny <proposal_id>       record a denial
+    warden proposals                list recent proposals
+    warden audit                    print the hash-chained audit trail + verify
 """
 from __future__ import annotations
 
@@ -18,29 +19,24 @@ import sys
 from warden_common import ledger, reads
 from warden_common.db import init_engine, session_scope
 
-from .deps import build_classifier, build_reader, build_runner_client
-from .graph import run_triage
-from .guards import assert_sandboxed
+from .. import capabilities
+from ..deps import build_runner_client
+from ..guards import assert_sandboxed
 
 
-def _cmd_triage(args: argparse.Namespace) -> int:
-    reader = build_reader()
-    classifier = build_classifier()
-    try:
-        payload = run_triage(
-            reader, classifier, repo=args.repo, requested_by=args.user
-        )
-    finally:
-        reader.close()
+def _cmd_capability(args: argparse.Namespace) -> int:
+    capability = capabilities.get(args.cmd)
+    assert capability is not None
+    payload = capability.run(subject=args.subject, requested_by=args.user)
     if not payload.actions:
-        print(f"No actions to propose for {args.repo}.")
+        print(f"No actions to propose for {args.subject}.")
         return 0
     with session_scope() as session:
         proposal = ledger.create_proposal(
             session, payload=payload, requested_by=args.user
         )
         pid = proposal.id
-    print(f"Proposed: {payload.summary_line()}")
+    print(f"[{capability.name}] {capability.summarize(payload)}")
     print(f"proposal_id = {pid}")
     print(f"Approve with:  warden approve {pid}")
     return 0
@@ -67,7 +63,10 @@ def _cmd_decide(args: argparse.Namespace, decision: str) -> int:
 def _cmd_proposals(_args: argparse.Namespace) -> int:
     with session_scope() as session:
         for p in reads.list_proposals(session):
-            print(f"{p['id']}  {p['status']:10}  {p['repo']:24}  {p['counts']}")
+            print(
+                f"{p['id']}  {p['status']:10}  {p['capability']:12}  "
+                f"{p['subject']:24}  {p['counts']}"
+            )
     return 0
 
 
@@ -77,21 +76,24 @@ def _cmd_audit(_args: argparse.Namespace) -> int:
     for e in data["entries"]:
         print(f"#{e['seq']:>3} {e['event_type']:22} {e['actor']:16} {e['this_hash'][:12]}")
     print("-" * 60)
-    print("chain_ok =", data["chain_ok"], "" if data["chain_ok"] else f"(broken at {data['first_bad_seq']})")
+    print(
+        "chain_ok =",
+        data["chain_ok"],
+        "" if data["chain_ok"] else f"(broken at {data['first_bad_seq']})",
+    )
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
-    assert_sandboxed()
-    init_engine(create_all=True)
-
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="warden")
     parser.add_argument("--user", default="cli-user", help="actor name for the ledger")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    t = sub.add_parser("triage")
-    t.add_argument("repo")
-    t.set_defaults(func=_cmd_triage)
+    # One subcommand per registered capability.
+    for cap in capabilities.all_capabilities():
+        c = sub.add_parser(cap.name, help=cap.help)
+        c.add_argument("subject", help="what to run against, e.g. owner/repo")
+        c.set_defaults(func=_cmd_capability)
 
     for name in ("approve", "approve_once", "deny"):
         d = sub.add_parser(name)
@@ -100,7 +102,13 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("proposals").set_defaults(func=_cmd_proposals)
     sub.add_parser("audit").set_defaults(func=_cmd_audit)
+    return parser
 
+
+def main(argv: list[str] | None = None) -> int:
+    assert_sandboxed()
+    init_engine(create_all=True)
+    parser = build_parser()
     args = parser.parse_args(argv)
     return args.func(args)
 
