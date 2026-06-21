@@ -33,13 +33,13 @@ and future.
 ```
   Slack (#eng-ops)                                             external systems
   ─────────────────────                                        ────────────────
-  @warden triage acme/api ─┐                            ┌──► e.g. GitHub (READ)
-   (one capability among    │                           │
-    many; surface is        │                           │
-    capability-agnostic)    │                           │
+  @warden triage acme/api? ┐                            ┌──► e.g. GitHub (READ)
+   (plain English; one      │                           │
+    LLM agent picks the     │                           │
+    tool & converses back)  │                           │
                   ┌─────────▼────────┐                  │
                   │  SANDBOXED AGENT │  read-only token ┘
-                  │  capabilities/   │  ── a capability reasons & proposes ──┐
+                  │  brain + caps/   │  ── a capability reasons & proposes ──┐
                   │  (NO write token)│                                       │
                   └─────────┬────────┘                                       │
         posts proposal +    │  "apply 23 labels, assign 8, close 3 dups.    │
@@ -98,10 +98,13 @@ class ReleaseNotesCapability(Capability):
 register(ReleaseNotesCapability())
 ```
 
-Add one import in `capabilities/__init__.py` and you're done — `@warden release-notes …`
-works in Slack, `warden release-notes …` works on the CLI, and it flows through the
-same approval + audit loop. If it needs a new *kind* of write, add a matching
-`ProviderExecutor` in the runner; the write token stays in the runner, never the agent.
+Add one import in `capabilities/__init__.py` and you're done. The single Slack
+agent (`warden_agent/brain/`) turns every registered capability into a tool
+automatically, so *"@warden draft release notes for acme/api"* just works in plain
+English — no routing/parsing code to touch. `warden release-notes …` works on the
+CLI, and it flows through the same approval + audit loop. If it needs a new *kind*
+of write, add a matching `ProviderExecutor` in the runner; the write token stays in
+the runner, never the agent.
 
 ---
 
@@ -151,7 +154,8 @@ make install && make test
 
 ## The golden-path demo (triage capability)
 
-1. In Slack: `@warden triage acme/api`
+1. In Slack: `@warden can you triage the issues on acme/api?` (plain English — the
+   agent maps it to the triage tool; if you omit the repo it asks which one).
 2. The agent (read-only token) runs the triage capability: it pulls open issues and
    classifies each via OpenAI through a LangGraph flow — severity, area, suggested
    labels, suggested assignee, duplicate candidates — each with a rationale and
@@ -188,7 +192,7 @@ cp .env.example .env             # fill in tokens (see below)
 docker compose up --build        # postgres + runner + agent + dashboard
 ```
 
-Then invite the bot to a channel and run `@warden triage owner/repo`.
+Then invite the bot to a channel and just ask: `@warden triage the issues on owner/repo`.
 Dashboard: <http://localhost:3000>. Runner health: <http://localhost:8000/healthz>.
 
 ### Tokens you need (and where each one goes)

@@ -32,6 +32,10 @@ class Capability(ABC):
     name: str = ""
     #: one-line help shown when listing capabilities
     help: str = ""
+    #: describes the ``subject`` argument to the conversational agent, so it can
+    #: extract it from natural language and ask for it when it's missing. Override
+    #: with something concrete (e.g. "a GitHub repo as 'owner/repo'").
+    subject_description: str = "The subject to act on."
 
     @abstractmethod
     def run(self, *, subject: str, requested_by: str) -> ProposalPayload:

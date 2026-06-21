@@ -15,7 +15,11 @@ from .graph import run_triage
 
 class TriageCapability(Capability):
     name = "triage"
-    help = "Classify, label, assign, and dedupe open GitHub issues. Usage: triage <owner/repo>"
+    help = "Classify, label, assign, and dedupe open GitHub issues for a repository."
+    subject_description = (
+        "The GitHub repository to triage, formatted as 'owner/repo' "
+        "(e.g. 'acme/payments')."
+    )
 
     def run(self, *, subject: str, requested_by: str) -> ProposalPayload:
         reader = build_reader()

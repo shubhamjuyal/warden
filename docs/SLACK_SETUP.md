@@ -9,9 +9,11 @@ Warden uses Socket Mode, so you don't need ngrok or a public endpoint. ~5 minute
 4. **Basic Information → App-Level Tokens → Generate** a token with the
    `connections:write` scope. Copy it (`xapp-…`) → `SLACK_APP_TOKEN` in `.env`.
 5. Invite the bot to a channel: `/invite @warden`.
-6. `docker compose up --build`, then in that channel invoke any capability:
-   `@warden <capability> <subject>` — e.g. `@warden triage owner/repo`. The bot
-   lists available capabilities if you `@warden` it with no arguments.
+6. `docker compose up --build`, then just talk to Warden in that channel:
+   `@warden can you triage the issues on owner/repo?`. Warden is conversational —
+   it figures out which capability you mean, asks a clarifying question if you
+   leave something out (e.g. the repo), and follows the rest of the thread without
+   needing another @mention.
 
 ## App manifest
 
@@ -29,10 +31,18 @@ oauth_config:
     bot:
       - app_mentions:read   # hear @warden …
       - chat:write          # post proposals + results
+      - channels:history    # follow thread replies in public channels
+      - groups:history      # …and private channels
+      # - im:history        # uncomment to also converse in DMs
+      # - mpim:history
 settings:
   event_subscriptions:
     bot_events:
       - app_mention
+      - message.channels    # follow-up replies (public channels)
+      - message.groups      # …and private channels
+      # - message.im        # uncomment for DMs
+      # - message.mpim
   interactivity:
     is_enabled: true        # the Approve / Deny buttons
   socket_mode_enabled: true
@@ -40,8 +50,10 @@ settings:
 ```
 
 Notes
-- The bot only needs `chat:write` and `app_mentions:read`. It never touches
-  GitHub through Slack — GitHub access is the agent's read-only token and the
-  runner's write token, both separate from Slack.
+- Warden never touches GitHub through Slack — GitHub access is the agent's
+  read-only token and the runner's write token, both separate from Slack.
+- The `*.history` scopes + `message.*` events are what let Warden follow a thread
+  conversationally after the first @mention. Drop them if you'd rather it only
+  respond to explicit @mentions.
 - Interactivity is enabled for Socket Mode (button clicks arrive over the socket;
   no request URL needed).
