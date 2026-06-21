@@ -6,13 +6,17 @@ from warden_agent.capabilities.triage.types import IssueClassification
 
 
 class FakeReader:
-    """Stands in for GitHubReadClient with canned issues."""
+    """Stands in for GitHubReadClient with canned issues + collaborators."""
 
-    def __init__(self, issues: list[dict]):
+    def __init__(self, issues: list[dict], assignees: list[str] | None = None):
         self._issues = [Issue(i) for i in issues]
+        self._assignees = assignees if assignees is not None else ["alice", "bob", "carol"]
 
     def list_open_issues(self, repo: str, *, limit: int = 50) -> list[Issue]:
         return self._issues[:limit]
+
+    def list_assignees(self, repo: str, *, limit: int = 100) -> list[str]:
+        return self._assignees[:limit]
 
     def close(self) -> None:  # pragma: no cover - nothing to clean up
         pass
@@ -24,7 +28,9 @@ class FakeClassifier:
     def __init__(self, items: list[IssueClassification]):
         self._items = items
 
-    def classify(self, repo: str, issues: list[dict]) -> list[IssueClassification]:
+    def classify(
+        self, repo: str, issues: list[dict], assignees: list[str]
+    ) -> list[IssueClassification]:
         # Only classify issues we were actually given, mirroring the real one.
         nums = {i["number"] for i in issues}
         return [c for c in self._items if c.issue_number in nums]
@@ -57,18 +63,15 @@ SAMPLE_ISSUES = [
 
 SAMPLE_CLASSIFICATIONS = [
     IssueClassification(
-        issue_number=1, severity="critical", area="auth",
-        suggested_labels=["bug"], suggested_assignee="alice",
+        issue_number=1, label="bug", assignee="alice",
         rationale="auth crash", evidence="NPE in AuthService",
     ),
     IssueClassification(
-        issue_number=2, severity="critical", area="auth",
-        suggested_labels=["bug"], duplicate_of=1,
+        issue_number=2, label="duplicate",
         rationale="dup of #1", evidence="Same NPE as #1",
     ),
     IssueClassification(
-        issue_number=3, severity="low", area="docs",
-        suggested_labels=["documentation"],
+        issue_number=3, label="documentation",
         rationale="doc typo", evidence="README has a typo",
     ),
 ]

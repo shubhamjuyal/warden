@@ -1,8 +1,9 @@
 """The triage capability — Warden's first capability.
 
-Classifies open GitHub issues (severity / area / labels / assignee / duplicates)
-and proposes the corresponding label/assign/close actions for human approval.
-Registers itself on import.
+For each open GitHub issue it proposes exactly one standard label (bug,
+documentation, duplicate, enhancement, good first issue, invalid, question) and,
+where there's a clear fit, an assignee drawn from the repo's collaborators — all
+for human approval. Registers itself on import.
 """
 from __future__ import annotations
 
@@ -34,8 +35,7 @@ class TriageCapability(Capability):
     def summarize(self, payload: ProposalPayload) -> str:
         c = payload.counts()
         return (
-            f"apply {c.get('label', 0)} labels, assign {c.get('assign', 0)} issues, "
-            f"close {c.get('close', 0)} duplicates"
+            f"apply {c.get('label', 0)} labels and assign {c.get('assign', 0)} issues"
         )
 
 

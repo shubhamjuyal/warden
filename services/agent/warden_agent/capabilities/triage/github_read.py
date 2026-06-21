@@ -43,6 +43,19 @@ class GitHubReadClient:
             headers["Authorization"] = f"Bearer {token}"
         self._client = httpx.Client(base_url=base_url, timeout=timeout, headers=headers)
 
+    def list_assignees(self, repo: str, *, limit: int = 100) -> list[str]:
+        """GitHub logins that can be assigned to issues in this repo — i.e. the
+        repo's collaborators. Read-only (needs only pull access); returns [] if
+        the list isn't visible to this token so triage still works without it."""
+        try:
+            r = self._client.get(
+                f"/repos/{repo}/assignees", params={"per_page": limit}
+            )
+            r.raise_for_status()
+        except httpx.HTTPError:
+            return []
+        return [u["login"] for u in r.json() if u.get("login")]
+
     def list_open_issues(self, repo: str, *, limit: int = 50) -> list[Issue]:
         issues: list[Issue] = []
         page = 1
