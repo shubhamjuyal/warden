@@ -24,6 +24,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import warden_agent
+from warden_agent.capabilities.explorer import repo_reader
 from warden_agent.capabilities.triage import github_read
 from warden_agent.guards import SandboxViolation, assert_sandboxed
 from warden_common import ledger
@@ -49,10 +50,15 @@ def test_write_token_in_agent_env_is_a_hard_startup_failure():
 
 # 2) ------------------------------------------------------------------------ #
 def test_agent_has_no_write_capability_in_source():
-    # The read client exposes no mutating methods.
-    read_methods = dir(github_read.GitHubReadClient)
-    for forbidden in ("add_labels", "add_assignees", "close_issue", "comment", "patch", "post"):
-        assert forbidden not in read_methods
+    # The read clients expose no mutating methods. This holds for every read-only
+    # client in the agent — triage's issue reader and the explorer's repo reader —
+    # so a new read capability can't smuggle in a write call.
+    forbidden = ("add_labels", "add_assignees", "close_issue", "comment",
+                 "patch", "post", "put", "delete")
+    for client in (github_read.GitHubReadClient, repo_reader.GitHubRepoReader):
+        methods = dir(client)
+        for name in forbidden:
+            assert name not in methods, f"{client.__name__} exposes {name}"
 
     # No file under the agent package *imports* the runner or its write client.
     # (We parse the AST so prose mentions in docstrings don't count — only real

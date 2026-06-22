@@ -22,6 +22,62 @@ class FakeReader:
         pass
 
 
+class FakeRepoReader:
+    """Stands in for GitHubRepoReader with canned repository data — no network."""
+
+    def __init__(self, files: dict[str, str] | None = None):
+        # path -> file text, used by read_file / browse_dir.
+        self._files = files if files is not None else {"README.md": "# Acme API\nHello."}
+
+    def repo_overview(self, repo: str) -> dict:
+        return {
+            "full_name": repo,
+            "description": "the acme api",
+            "default_branch": "main",
+            "language": "Python",
+            "stars": 7,
+            "topics": ["api"],
+            "license": "MIT",
+            "pushed_at": "2026-06-01T00:00:00Z",
+            "archived": False,
+        }
+
+    def list_branches(self, repo: str, *, limit: int = 50) -> list[str]:
+        return ["main", "dev"][:limit]
+
+    def browse_dir(self, repo, path="", ref=None, *, limit: int = 200) -> list[dict]:
+        return [
+            {"name": p, "type": "file", "size": len(t), "path": p}
+            for p, t in self._files.items()
+        ][:limit]
+
+    def read_file(self, repo, path, ref=None, *, max_bytes: int = 100_000) -> dict:
+        if path not in self._files:
+            return {"error": f"file '{path}' not found in {repo}"}
+        text = self._files[path]
+        return {"path": path, "size": len(text), "truncated": False, "content": text}
+
+    def list_issues(self, repo, state="open", *, limit: int = 100) -> dict:
+        issues = [
+            {"number": 1, "title": "Bug A", "state": "open", "labels": [], "author": "alice", "comments": 0},
+            {"number": 2, "title": "Bug B", "state": "open", "labels": ["bug"], "author": "bob", "comments": 3},
+        ]
+        return {"state": state, "count": len(issues), "capped": False, "issues": issues}
+
+    def search_code(self, repo, query, *, limit: int = 20) -> list[dict]:
+        return [
+            {"path": p, "name": p, "html_url": f"https://github.com/{repo}/blob/main/{p}"}
+            for p, t in self._files.items()
+            if query in t
+        ][:limit]
+
+    def recent_commits(self, repo, ref=None, path=None, *, limit: int = 20) -> list[dict]:
+        return [{"sha": "abc1234", "message": "init", "author": "alice", "date": "2026-06-01T00:00:00Z"}][:limit]
+
+    def close(self) -> None:  # pragma: no cover - nothing to clean up
+        pass
+
+
 class FakeClassifier:
     """Returns predetermined classifications (no LLM call)."""
 

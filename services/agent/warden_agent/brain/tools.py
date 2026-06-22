@@ -22,6 +22,7 @@ from warden_common.db import session_scope
 
 from .. import capabilities
 from ..capabilities.base import Capability
+from ..capabilities.explorer.registry import all_readonly_tools
 from ..surfaces.cards import proposal_blocks
 from .context import current_turn
 
@@ -82,5 +83,8 @@ def _build_tool(capability: Capability) -> StructuredTool:
 
 
 def build_tools() -> list[StructuredTool]:
-    """One tool per registered capability — the agent's entire action surface."""
-    return [_build_tool(cap) for cap in capabilities.all_capabilities()]
+    """The agent's entire tool surface: one approval-producing tool per registered
+    capability, plus the explorer's read-only repository tools (which answer
+    directly and never propose)."""
+    proposal_tools = [_build_tool(cap) for cap in capabilities.all_capabilities()]
+    return proposal_tools + all_readonly_tools()
