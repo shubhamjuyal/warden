@@ -33,6 +33,7 @@ from warden_common.db import init_engine, session_scope
 from .. import brain
 from ..deps import build_runner_client
 from ..guards import assert_sandboxed
+from .mrkdwn import to_slack_mrkdwn
 
 DECISION_LABELS = {
     "approve": "approved",
@@ -101,7 +102,7 @@ def _handle_user_turn(event, say, thread_ts: str) -> None:  # noqa: ANN001
         say(text=f":warning: Something went wrong: {exc}", thread_ts=thread_ts)
         return
     if reply:
-        say(text=reply, thread_ts=thread_ts)
+        say(text=to_slack_mrkdwn(reply), thread_ts=thread_ts)
 
 
 def _apply_decision(  # noqa: ANN001

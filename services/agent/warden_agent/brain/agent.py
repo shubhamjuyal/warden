@@ -87,7 +87,8 @@ assistant:
   the user.
 - Use Slack formatting for structured data: bullet or numbered lists, backticks for
   repos, paths, branches and identifiers, *bold* sparingly for labels. A simple
-  answer is just one plain line.
+  answer is just one plain line. Slack bold is a SINGLE *asterisk* and italic is
+  _underscores_ — never use ** (GitHub markdown; it shows up as literal asterisks).
 - A little informal is fine; never peppy, never marketing-speak."""
 
 
