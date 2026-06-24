@@ -103,7 +103,15 @@ def _list_issues(repo: str, state: str = "open") -> str:
 def _search_code(repo: str, query: str) -> str:
     hits = _with_reader(lambda r: r.search_code(repo, query))
     if not hits:
-        return f"No code matches for '{query}' in {repo}."
+        # An empty result is NOT proof the code is absent — GitHub's code search
+        # frequently returns nothing for small, new, or private repos. Steer the
+        # model to explore directly instead of concluding the code doesn't exist.
+        return (
+            f"No code-search matches for '{query}' in {repo}. Note: code search "
+            f"often misses small/new/private repos, so this does NOT mean the code "
+            f"isn't there. Browse the repo with browse_dir (start at the root) and "
+            f"read_file the likely files directly."
+        )
     return _dump(hits)
 
 

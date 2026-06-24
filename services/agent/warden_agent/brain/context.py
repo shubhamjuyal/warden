@@ -13,8 +13,10 @@ token.
 from __future__ import annotations
 
 import contextvars
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable
+
+from warden_common.schemas import Action
 
 
 @dataclass
@@ -26,6 +28,12 @@ class SlackTurnContext:
     thread_ts: str
     #: Slack Bolt's ``say`` for this event — used to post the approval card.
     say: Callable[..., Any]
+    #: Write actions staged this turn by the fixer tools (create_branch,
+    #: commit_code, open_pr). ``submit_change`` bundles them into one proposal.
+    #: Per-turn, so a fix is assembled within a single reasoning turn.
+    staging: list[Action] = field(default_factory=list)
+    #: The repo all staged actions belong to (the proposal's subject).
+    staging_subject: str = ""
 
 
 _CURRENT: contextvars.ContextVar[SlackTurnContext | None] = contextvars.ContextVar(

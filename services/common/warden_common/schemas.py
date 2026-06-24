@@ -27,6 +27,12 @@ class Action(BaseModel):
     type: str      # operation within the provider, e.g. "label" | "assign" | "close"
     target: str    # the object the action applies to, e.g. an issue number
     value: str = ""
+    #: Structured parameters that don't fit target/value — e.g. a commit's branch,
+    #: file content, and message, or a PR's base/title/body. Kept out of target/
+    #: value so the Slack approval card stays legible (it renders only
+    #: type/target/value/rationale/evidence, never ``args``). Still part of the
+    #: payload hash, so an approval is bound to these exact parameters.
+    args: dict[str, str] = Field(default_factory=dict)
     rationale: str = Field(..., description="Why the agent proposes this")
     evidence: str = Field(
         default="", description="Quote/signal supporting it"

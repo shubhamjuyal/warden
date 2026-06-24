@@ -17,14 +17,11 @@ from __future__ import annotations
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field, create_model
 
-from warden_common import ledger
-from warden_common.db import session_scope
-
 from .. import capabilities
 from ..capabilities.base import Capability
 from ..capabilities.explorer.registry import all_readonly_tools
-from ..surfaces.cards import proposal_blocks
 from .context import current_turn
+from .proposing import build_write_tools, post_proposal
 
 
 def _run_capability(capability: Capability, subject: str) -> str:
@@ -34,35 +31,13 @@ def _run_capability(capability: Capability, subject: str) -> str:
     if not subject:
         # Defensive: the prompt tells the model to ask first, but never act on a
         # blank subject if it slips through.
-        return (
-            f"I can't run {capability.name} without a subject "
-            f"({capability.subject_description}). Ask the user for it."
-        )
+        return f"{capability.name} needs a subject: {capability.subject_description}"
 
     payload = capability.run(subject=subject, requested_by=ctx.user)
     if not payload.actions:
-        return (
-            f"Ran {capability.name} on {subject}: nothing to propose — no actions "
-            f"needed. Tell the user there's nothing to do."
-        )
+        return f"{capability.name} on {subject}: nothing to propose."
 
-    with session_scope() as session:
-        proposal = ledger.create_proposal(
-            session, payload=payload, requested_by=ctx.user, slack_channel=ctx.channel
-        )
-        proposal_id = proposal.id
-
-    summary = capability.summarize(payload)
-    ctx.say(
-        blocks=proposal_blocks(proposal_id, payload, summary),
-        text="Warden proposal",
-        thread_ts=ctx.thread_ts,
-    )
-    return (
-        f"Proposed for {subject}: {summary}. I posted an approval card in the "
-        f"thread (proposal {proposal_id[:8]}). Tell the user to review and "
-        f"Approve/Deny — nothing happens until they do."
-    )
+    return post_proposal(payload, capability.summarize(payload))
 
 
 def _args_schema(capability: Capability) -> type[BaseModel]:
@@ -83,8 +58,11 @@ def _build_tool(capability: Capability) -> StructuredTool:
 
 
 def build_tools() -> list[StructuredTool]:
-    """The agent's entire tool surface: one approval-producing tool per registered
-    capability, plus the explorer's read-only repository tools (which answer
-    directly and never propose)."""
+    """The agent's entire tool surface:
+
+    * one approval-producing tool per registered capability (e.g. triage),
+    * the explorer's read-only repository tools (answer directly, never propose),
+    * the fixer's write tools (stage branch/commit/PR, then submit one approval).
+    """
     proposal_tools = [_build_tool(cap) for cap in capabilities.all_capabilities()]
-    return proposal_tools + all_readonly_tools()
+    return proposal_tools + all_readonly_tools() + build_write_tools()

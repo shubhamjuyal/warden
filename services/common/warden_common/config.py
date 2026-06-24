@@ -41,6 +41,12 @@ class AgentSettings(BaseSettings):
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o", alias="OPENAI_MODEL")
 
+    # Max LangGraph steps per turn (each model call + tool run counts). A thorough
+    # fix — browse the repo, read several files, then stage branch/commit/PR — uses
+    # many steps, so this is well above LangGraph's default of 25. Raise it if a
+    # complex turn ever runs out of steps.
+    agent_recursion_limit: int = Field(default=60, alias="AGENT_RECURSION_LIMIT")
+
     # Where the runner lives. The agent can *ask* this service to act; it cannot
     # act itself.
     runner_url: str = Field(default="http://localhost:8000", alias="RUNNER_URL")

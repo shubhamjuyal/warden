@@ -110,6 +110,17 @@ class FakeWriter:
     def comment(self, repo, issue, body):
         self.calls.append(("comment", repo, issue, body))
 
+    # repo writes (github_repo provider)
+    def create_branch(self, repo, branch, base=""):
+        self.calls.append(("create_branch", repo, branch, base))
+
+    def commit_file(self, repo, branch, path, content, message):
+        self.calls.append(("commit_file", repo, branch, path, content, message))
+
+    def open_pr(self, repo, head, base="", title="", body=""):
+        self.calls.append(("open_pr", repo, head, base, title, body))
+        return f"https://github.com/{repo}/pull/1"
+
 
 SAMPLE_ISSUES = [
     {"number": 1, "title": "App crashes on login", "body": "NPE in AuthService", "labels": [], "user": {"login": "alice"}},
